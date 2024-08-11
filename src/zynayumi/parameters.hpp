@@ -525,6 +525,10 @@ enum ParameterIndex {
 	// Oversampling
 	OVERSAMPLING,
 
+	// Output
+	OUTPUT_LEFT,
+	OUTPUT_RIGHT,
+
 	// Number of Parameters
 	PARAMETERS_COUNT
 };
