@@ -395,8 +395,6 @@ void Voice::update_seq()
 		std::cerr << "Case not implemented, there's likely a bug" << std::endl;
 		break;
 	}
-
-	std::cout << "Voice::update_seq() _seq_step = " << _seq_step << ", _seq_index = " << _seq_index << std::endl;
 }
 
 void Voice::update_tone()
