@@ -41,6 +41,14 @@ Voice::Voice(Engine& engine, const Patch& pa, unsigned char ych)
 	, _engine(&engine)
 	, _patch(&pa)
 	, _initial_pitch(0)
+	, _final_pitch(0.0)
+	, _tone_off(true)
+	, _noise_off(true)
+	, _buzzer_off(true)
+	, _noise_period(0)
+	, _relative_pitchenv_pitch(0.0)
+	, _relative_port_pitch(0.0)
+	, _relative_lfo_pitch(0.0)
 	, _seq_step(-1)
 	, _seq_change(true)
 	, _seq_index(0)
@@ -51,9 +59,17 @@ Voice::Voice(Engine& engine, const Patch& pa, unsigned char ych)
 	, _env_smp_count(0)
 	, _on_smp_count(0)
 	, _pitch_smp_count(0)
+	, _final_level(0.0)
 	, _ringmod_smp_count(0)
 	, _ringmod_back(false)
 	, _ringmod_waveform_index(0)
+	, _ringmod_waveform_level(0.0)
+	, _ringmod_pitch(0.0)
+	, _ringmod_smp_period(0.0)
+	, _ringmod_whole_smp_period(0.0)
+	, _buzzer_pitch(0.0)
+	, _buzzer_period(0)
+	, _actual_sustain_level(0.0)
 	, _first_update(true)
 	, _tone_trigger(false)
 	, _last_tone(_engine->ay.channels[ym_channel].tone)
@@ -481,6 +497,9 @@ void Voice::update_portamento()
 			 : 0.0);
 		_engine->last_pitch = _relative_port_pitch + _initial_pitch;
 	} else {
+		// No portamento: reset explicitly, otherwise this keeps whatever
+		// indeterminate value the constructor left behind.
+		_relative_port_pitch = 0.0;
 		_engine->last_pitch = _initial_pitch;
 	}
 
@@ -704,6 +723,14 @@ void Voice::update_ringmod_smp_period()
 	_ringmod_whole_smp_period = 2 * _engine->pitch2toneperiod(_ringmod_pitch);
 	int nsegs = (RINGMOD_WAVEFORM_SIZE * (_patch->ringmod.loop == RingMod::Loop::PingPong ? 2 : 1));
 	_ringmod_smp_period = _ringmod_whole_smp_period / nsegs;
+
+	// A degenerate pitch makes the period collapse to zero (or NaN), and then
+	// update_ringmod_smp_count() subtracts nothing forever. Never let the ring
+	// modulator advance by more than one segment per sample; that also bounds
+	// the iteration count of that loop.
+	const double min_smp_period = _engine->ay.step * DECIMATE_FACTOR;
+	if (not (_ringmod_smp_period >= min_smp_period) or min_smp_period <= 0.0)
+		_ringmod_smp_period = min_smp_period > 0.0 ? min_smp_period : 1.0;
 }
 
 void Voice::update_ringmod_smp_count()
